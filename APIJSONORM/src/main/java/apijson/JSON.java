@@ -11,6 +11,7 @@ import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.alibaba.fastjson.JSONReader;
 
 import java.util.List;
+import java.util.UUID;
 
 /**阿里FastJSON封装类 防止解析时异常
  * @author Lemon
@@ -30,7 +31,7 @@ public class JSON {
 				|| s.equals("")
 				|| s.equals("[null]")
 				|| s.equals("{null}")
-				|| s.equals("null")) {
+		    || s.equals("null")) {
 			return false;
 		}
 		return true;
@@ -267,7 +268,7 @@ public class JSON {
 	 * @return
 	 */
 	public static boolean isBooleanOrNumberOrString(Object obj) {
-		return obj instanceof Boolean || obj instanceof Number || obj instanceof String;
+	    return obj instanceof Boolean || obj instanceof Number || obj instanceof String || obj instanceof UUID;
 	}
 
 }
