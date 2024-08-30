@@ -46,7 +46,7 @@ import static apijson.RequestMethod.GET;
  */
 public abstract class AbstractParser<T extends Object> implements Parser<T>, ParserCreator<T>, VerifierCreator<T>, SQLCreator {
 	protected static final String TAG = "AbstractParser";
-	
+
 	/**
 	 * JSON 对象、数组对应的数据源、版本、角色、method等
 	 */
@@ -72,7 +72,7 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 
 	public static int DEFAULT_QUERY_COUNT = 10;
 	public static int MAX_QUERY_PAGE = 100;
-	public static int MAX_QUERY_COUNT = 100;
+	public static int MAX_QUERY_COUNT = 10000;
 	public static int MAX_UPDATE_COUNT = 10;
 	public static int MAX_SQL_COUNT = 200;
 	public static int MAX_OBJECT_COUNT = 5;
@@ -535,6 +535,8 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 			error = e;
 
 			onRollback();
+		}finally {
+			onClose();
 		}
 
 		String warn = Log.DEBUG == false || error != null ? null : getWarnString();
@@ -556,16 +558,16 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 			res.put("time:start|duration|end|parse|sql", startTime + "|" + duration + "|" + endTime + "|" + parseDuration + "|" + executedSQLDuration);
 
 			if (error != null) {
-                //        String msg = error.getMessage();
-                //        if (msg != null && msg.contains(Log.KEY_SYSTEM_INFO_DIVIDER)) {
-                //        }
-                Throwable t = error instanceof CommonException && error.getCause() != null ? error.getCause() : error;
+		//        String msg = error.getMessage();
+		//        if (msg != null && msg.contains(Log.KEY_SYSTEM_INFO_DIVIDER)) {
+		//        }
+		Throwable t = error instanceof CommonException && error.getCause() != null ? error.getCause() : error;
 				res.put("trace:throw", t.getClass().getName());
 				res.put("trace:stack", t.getStackTrace());
 			}
 		}
 
-		onClose();
+
 
 		// CS304 Issue link: https://github.com/Tencent/APIJSON/issues/232
 		if (IS_PRINT_REQUEST_STRING_LOG || Log.DEBUG || error != null) {
@@ -640,7 +642,7 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 
 		return batchVerify(method, tag, version, name, request, maxUpdateCount, creator);
 	}
-	
+
 	/**自动根据 tag 是否为 TableKey 及是否被包含在 object 内来决定是否包装一层，改为 { tag: object, "tag": tag }
 	 * @param object
 	 * @param tag
@@ -866,80 +868,80 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 	 * @return
 	 */
 	public static JSONObject extendErrorResult(JSONObject object, Throwable e, RequestMethod requestMethod, String url, boolean isRoot) {
-        String msg = CommonException.getMsg(e);
+	String msg = CommonException.getMsg(e);
 
-        if (Log.DEBUG && isRoot) {
-            try {
-                boolean isCommon = e instanceof CommonException;
-                String env = isCommon ? ((CommonException) e).getEnvironment() : null;
-                if (StringUtil.isEmpty(env)) {
-                    //int index = msg.lastIndexOf(Log.KEY_SYSTEM_INFO_DIVIDER);
-                    //env = index >= 0 ? msg.substring(index + Log.KEY_SYSTEM_INFO_DIVIDER.length()).trim()
-                    env = " \n **环境信息** "
-                            + " \n 系统: " + Log.OS_NAME + " " + Log.OS_VERSION
-                            + " \n 数据库: <!-- 请填写，例如 MySQL 5.7。默认数据库为 " + AbstractSQLConfig.DEFAULT_DATABASE + " -->"
-                            + " \n JDK: " + Log.JAVA_VERSION + " " + Log.OS_ARCH
-                            + " \n APIJSON: " + Log.VERSION;
+	if (Log.DEBUG && isRoot) {
+	    try {
+		boolean isCommon = e instanceof CommonException;
+		String env = isCommon ? ((CommonException) e).getEnvironment() : null;
+		if (StringUtil.isEmpty(env)) {
+		    //int index = msg.lastIndexOf(Log.KEY_SYSTEM_INFO_DIVIDER);
+		    //env = index >= 0 ? msg.substring(index + Log.KEY_SYSTEM_INFO_DIVIDER.length()).trim()
+		    env = " \n **环境信息** "
+			    + " \n 系统: " + Log.OS_NAME + " " + Log.OS_VERSION
+			    + " \n 数据库: <!-- 请填写，例如 MySQL 5.7。默认数据库为 " + AbstractSQLConfig.DEFAULT_DATABASE + " -->"
+			    + " \n JDK: " + Log.JAVA_VERSION + " " + Log.OS_ARCH
+			    + " \n APIJSON: " + Log.VERSION;
 
-                    //msg = index < 0 ? msg : msg.substring(0, index).trim();
-                }
+		    //msg = index < 0 ? msg : msg.substring(0, index).trim();
+		}
 
-                String encodedMsg = URLEncoder.encode(msg, "UTF-8");
+		String encodedMsg = URLEncoder.encode(msg, "UTF-8");
 
-                if (StringUtil.isEmpty(url, true)) {
-                    String host = "localhost";
-                    try {
-                        host = InetAddress.getLocalHost().getHostAddress();
-                    } catch (Throwable e2) {}
+		if (StringUtil.isEmpty(url, true)) {
+		    String host = "localhost";
+		    try {
+			host = InetAddress.getLocalHost().getHostAddress();
+		    } catch (Throwable e2) {}
 
-                    String port = "8080";
-                    try {
-                        MBeanServer beanServer = ManagementFactory.getPlatformMBeanServer();
+		    String port = "8080";
+		    try {
+			MBeanServer beanServer = ManagementFactory.getPlatformMBeanServer();
 
-                        Set<ObjectName> objectNames = beanServer.queryNames(
-                                new ObjectName("*:type=Connector,*"),
-                                Query.match(Query.attr("protocol"), Query.value("HTTP/1.1"))
-                        );
-                        String p = objectNames.iterator().next().getKeyProperty("port");
-                        port = StringUtil.isEmpty(p, true) ? port : p;
-                    } catch (Throwable e2) {}
+			Set<ObjectName> objectNames = beanServer.queryNames(
+				new ObjectName("*:type=Connector,*"),
+				Query.match(Query.attr("protocol"), Query.value("HTTP/1.1"))
+			);
+			String p = objectNames.iterator().next().getKeyProperty("port");
+			port = StringUtil.isEmpty(p, true) ? port : p;
+		    } catch (Throwable e2) {}
 
-                    url = "http://" + host + ":" + port + "/" + (requestMethod == null ? RequestMethod.GET : requestMethod).name().toLowerCase();
-                }
+		    url = "http://" + host + ":" + port + "/" + (requestMethod == null ? RequestMethod.GET : requestMethod).name().toLowerCase();
+		}
 
-                String req = JSON.toJSONString(object);
-                try {
-                    req = URLEncoder.encode(req, "UTF-8");
-                } catch (Throwable e2) {}
+		String req = JSON.toJSONString(object);
+		try {
+		    req = URLEncoder.encode(req, "UTF-8");
+		} catch (Throwable e2) {}
 
-                Throwable t = isCommon ? e.getCause() : e;
-                boolean isSQLException = t instanceof SQLException;  // SQL 报错一般都是通用问题，优先搜索引擎
-                String apiatuoAndGitHubLink = "\n\n【APIAuto】： \n http://apijson.cn/api?type=JSON&url=" + URLEncoder.encode(url, "UTF-8") + "&json=" + req
-                        + "        \n\n【GitHub】： \n https://www.google.com/search?q=site%3Agithub.com%2FTencent%2FAPIJSON+++" + encodedMsg;
+		Throwable t = isCommon ? e.getCause() : e;
+		boolean isSQLException = t instanceof SQLException;  // SQL 报错一般都是通用问题，优先搜索引擎
+		String apiatuoAndGitHubLink = "\n\n【APIAuto】： \n http://apijson.cn/api?type=JSON&url=" + URLEncoder.encode(url, "UTF-8") + "&json=" + req
+			+ "        \n\n【GitHub】： \n https://www.google.com/search?q=site%3Agithub.com%2FTencent%2FAPIJSON+++" + encodedMsg;
 
-                msg += Log.KEY_SYSTEM_INFO_DIVIDER + "    浏览器打开以下链接查看解答"
-                        + (isSQLException ? "" : apiatuoAndGitHubLink)
-                        //	GitHub Issue 搜索貌似是精准包含，不易找到答案 	+ "        \n\nGitHub： \n https://github.com/Tencent/APIJSON/issues?q=is%3Aissue+" + encodedMsg
-                        + "        \n\n【Google】：\n https://www.google.com/search?q=" + encodedMsg
-                        + "        \n\n【百度】：\n https://www.baidu.com/s?ie=UTF-8&wd=" + encodedMsg
-                        + (isSQLException ? apiatuoAndGitHubLink : "")
-                        + "        \n\n都没找到答案？打开这个链接 \n https://github.com/Tencent/APIJSON/issues/new?assignees=&labels=&template=--bug.md  "
-                        + " \n然后提交问题，推荐用以下模板修改，注意要换行保持清晰可读。"
-                        + " \n【标题】：" + msg
-                        + " \n【内容】：" + env + "\n\n**问题描述**\n" + msg
-                        + " \n\n<!-- 尽量完整截屏(至少包含请求和回包结果，还可以加上控制台报错日志)，然后复制粘贴到这里 -->"
-                        + " \n\nPOST " + url
-                        + " \n发送请求 Request JSON：\n ```js"
-                        + " \n 请填写，例如 { \"Users\":{} }"
-                        + " \n```"
-                        + " \n\n返回结果 Response JSON：\n ```js"
-                        + " \n 请填写，例如 { \"Users\": {}, \"code\": 401, \"msg\": \"Users 不允许 UNKNOWN 用户的 GET 请求！\" }"
-                        + " \n```";
-            } catch (Throwable e2) {}
-        }
+		msg += Log.KEY_SYSTEM_INFO_DIVIDER + "    浏览器打开以下链接查看解答"
+			+ (isSQLException ? "" : apiatuoAndGitHubLink)
+			//	GitHub Issue 搜索貌似是精准包含，不易找到答案	+ "        \n\nGitHub： \n https://github.com/Tencent/APIJSON/issues?q=is%3Aissue+" + encodedMsg
+			+ "        \n\n【Google】：\n https://www.google.com/search?q=" + encodedMsg
+			+ "        \n\n【百度】：\n https://www.baidu.com/s?ie=UTF-8&wd=" + encodedMsg
+			+ (isSQLException ? apiatuoAndGitHubLink : "")
+			+ "        \n\n都没找到答案？打开这个链接 \n https://github.com/Tencent/APIJSON/issues/new?assignees=&labels=&template=--bug.md  "
+			+ " \n然后提交问题，推荐用以下模板修改，注意要换行保持清晰可读。"
+			+ " \n【标题】：" + msg
+			+ " \n【内容】：" + env + "\n\n**问题描述**\n" + msg
+			+ " \n\n<!-- 尽量完整截屏(至少包含请求和回包结果，还可以加上控制台报错日志)，然后复制粘贴到这里 -->"
+			+ " \n\nPOST " + url
+			+ " \n发送请求 Request JSON：\n ```js"
+			+ " \n 请填写，例如 { \"Users\":{} }"
+			+ " \n```"
+			+ " \n\n返回结果 Response JSON：\n ```js"
+			+ " \n 请填写，例如 { \"Users\": {}, \"code\": 401, \"msg\": \"Users 不允许 UNKNOWN 用户的 GET 请求！\" }"
+			+ " \n```";
+	    } catch (Throwable e2) {}
+	}
 
-        int code = CommonException.getCode(e);
-        return extendResult(object, code, msg, null, isRoot);
+	int code = CommonException.getCode(e);
+	return extendResult(object, code, msg, null, isRoot);
     }
 
 	/**新建错误状态内容
@@ -956,11 +958,11 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 	 */
 	public static JSONObject newErrorResult(Exception e, boolean isRoot) {
 		if (e != null) {
-		  	//      if (Log.DEBUG) {
-		  	e.printStackTrace();
-		  	//      }
+			//      if (Log.DEBUG) {
+			e.printStackTrace();
+			//      }
 
-		  	String msg = CommonException.getMsg(e);
+			String msg = CommonException.getMsg(e);
 			Integer code = CommonException.getCode(e);
 
 			return newResult(code, msg, null, isRoot);
@@ -1391,14 +1393,14 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 			 * 支持引用取值后的数组
 			{
 			    "User-id[]": {
-			        "User": {
-			            "contactIdList<>": 82002
-			        }
+				"User": {
+				    "contactIdList<>": 82002
+				}
 			    },
 			    "Moment-userId[]": {
-			        "Moment": {
-			            "userId{}@": "User-id[]"
-			        }
+				"Moment": {
+				    "userId{}@": "User-id[]"
+				}
 			    }
 			}
 			 */
@@ -1543,7 +1545,7 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 			}
 			catch (Exception e2) {
 				throw new IllegalArgumentException(JSONRequest.KEY_JOIN + ":'" + e.getKey() + "' 对应的 " + tableKey + ":value 中 value 类型不合法！" +
-          "必须是 {} 这种 JSONObject 格式！" + e2.getMessage());
+	  "必须是 {} 这种 JSONObject 格式！" + e2.getMessage());
 			}
 
 			if (arrKey != null) {
@@ -1573,7 +1575,7 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 
 				if (tableObj.get(key) instanceof String == false) {
 					throw new IllegalArgumentException(JSONRequest.KEY_JOIN + ":" + e.getKey() + "' 对应的 "
-            + tableKey + ":{ " + key + ": value } 中 value 类型不合法！必须为同层级引用赋值路径 String！");
+	    + tableKey + ":{ " + key + ": value } 中 value 类型不合法！必须为同层级引用赋值路径 String！");
 				}
 
 				if (isAppJoin && StringUtil.isName(key.substring(0, key.length() - 1)) == false) {
@@ -2421,14 +2423,14 @@ public abstract class AbstractParser<T extends Object> implements Parser<T>, Par
 	}
 
 	public static <E extends Enum<E>> E getEnum(final Class<E> enumClass, final String enumName, final E defaultEnum) {
-        if (enumName == null) {
-            return defaultEnum;
-        }
-        try {
-            return Enum.valueOf(enumClass, enumName);
-        } catch (final IllegalArgumentException ex) {
-            return defaultEnum;
-        }
+	if (enumName == null) {
+	    return defaultEnum;
+	}
+	try {
+	    return Enum.valueOf(enumClass, enumName);
+	} catch (final IllegalArgumentException ex) {
+	    return defaultEnum;
+	}
     }
 
 	protected void setRequestAttribute(String key, boolean isArray, String attrKey, @NotNull JSONObject request) {
